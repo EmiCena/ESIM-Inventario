@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="title">Vincular Discord</h1>
+{% if linked %}
+  <p>Tu cuenta ya está vinculada a Discord (ID: {{ request.user.profile.discord_user_id }}).</p>
+{% else %}
+  <p>Generá un token y usá el comando /vincular en el servidor de Discord.</p>
+  <form method="post">{% csrf_token %}
+    <button class="btn-pill">Generar token</button>
+  </form>
+{% endif %}
+{% if token %}
+  <div class="card"><strong>Tu token:</strong> <code>{{ token }}</code> (válido por única vez)</div>
+{% endif %}
+{% endblock %}

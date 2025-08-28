@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="title">Préstamo rápido</h1>
+
+<form method="post" class="form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <p>
+    <label for="id_tipo">Tipo de ítem:</label>
+    {{ form.tipo }}
+  </p>
+
+  <p>
+    <label for="id_code">Número:</label>
+    {{ form.code }}
+    <small id="no-disponibles" style="display:none;color:#c00">No hay disponibles de este tipo.</small>
+  </p>
+
+  <p>
+    <label for="id_nivel">Nivel:</label>
+    {{ form.nivel }}
+  </p>
+
+  <div id="sup-extra" style="display:none">
+    <p>
+      <label for="id_carrera">Carrera (Superior):</label>
+      {{ form.carrera }}
+    </p>
+    <p>
+      <label for="id_anio">Año (Superior):</label>
+      {{ form.anio }}
+    </p>
+  </div>
+
+  <p>
+    <label for="id_turno">Turno:</label>
+    {{ form.turno }}
+  </p>
+
+  <p>
+    <label for="id_aula">Aula:</label>
+    {{ form.aula }}
+  </p>
+
+  <p>
+    <label for="id_solicitante">Solicitante:</label>
+    {{ form.solicitante }}
+  </p>
+
+  <button class="btn-pill" id="btn-submit">Registrar préstamo</button>
+</form>
+
+<script>
+const tipoSel = document.getElementById('id_tipo');
+const codeSel = document.getElementById('id_code');
+const noDisp = document.getElementById('no-disponibles');
+const btn = document.getElementById('btn-submit');
+const nivelSel = document.getElementById('id_nivel');
+const supExtra = document.getElementById('sup-extra');
+
+async function cargarNumeros(tipo){
+  try{
+    const res = await fetch(`/api/items/?tipo=${tipo}`);
+    const data = await res.json();
+    codeSel.innerHTML = '';
+    if(!data.length){
+      noDisp.style.display = 'inline';
+      btn.disabled = true;
+      return;
+    }
+    noDisp.style.display = 'none';
+    btn.disabled = false;
+    for (const it of data){
+      const opt = document.createElement('option');
+      opt.value = it.code; opt.textContent = it.code;
+      codeSel.appendChild(opt);
+    }
+  }catch(e){ console.error(e); }
+}
+function toggleSup(){ supExtra.style.display = (nivelSel.value === 'SUP') ? 'block' : 'none'; }
+
+tipoSel.addEventListener('change', e => cargarNumeros(e.target.value));
+nivelSel.addEventListener('change', toggleSup);
+
+// inicial
+cargarNumeros(tipoSel.value);
+toggleSup();
+</script>
+{% endblock %}

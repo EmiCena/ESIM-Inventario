@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="title">En uso ahora</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Ítem</th>
+      <th>Tipo</th>
+      <th>Nivel</th>
+      <th>Carrera</th>
+      <th>Año</th>
+      <th>Turno</th>
+      <th>Aula</th>
+      <th>Solicitante</th>
+      <th>Inicio</th>
+      <th>Hace</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in activos %}
+      <tr>
+        <td>{{ p.item.code }}</td>
+        <td>{{ p.item.get_tipo_display }}</td>
+        <td>{{ p.get_nivel_display }}</td>
+        <td>
+          {% if p.nivel == 'SUP' and p.carrera %}
+            {{ p.get_carrera_display }}
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {% if p.nivel == 'SUP' and p.anio %}
+            {{ p.anio }}°
+          {% else %}-{% endif %}
+        </td>
+        <td>{{ p.get_turno_display }}</td>
+        <td>{{ p.aula }}</td>
+        <td>{{ p.solicitante|default:"—" }}</td>
+        <td>{{ p.inicio|date:"d/m/Y H:i" }}</td>
+        <td>{{ p.inicio|timesince }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="10">No hay préstamos activos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
