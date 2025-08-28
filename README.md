@@ -1,6 +1,6 @@
-# ESI Inventario (Django)
+# ESIM Inventario (Django)
 
-Sistema de gestión de préstamos para la Escuela Secundaria de Innovación (notebooks, tablets y alargues), con:
+Sistema de gestión de préstamos para la Escuela Secundaria de Innovación de Misiones (notebooks, tablets y alargues), con:
 - Préstamo y entrega “en el momento” (login requerido).
 - Medición por horas y dashboard con filtros por tipo, nivel, carrera y año.
 - Reservas y mantenimiento básico.
