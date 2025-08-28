@@ -194,10 +194,3 @@ python manage.py discord_bot
 # webhook (test)
 python manage.py shell -c "from core.discord import send_discord; send_discord('Ping ✅')"
 ```
-
-Roadmap corto (opcional)
-- Botones en Discord (Prestar/Entregar/Cancelar reserva) con componentes.
-- “Mis préstamos” en la web para ver historial del usuario.
-- Score de mantenimiento y alertas por horas acumuladas.
-
-Listo. Si querés, lo convierto a un README.md en tu repo y armo un “Getting started” de 1 página para el equipo técnico.
