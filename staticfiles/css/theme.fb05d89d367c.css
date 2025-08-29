@@ -1,0 +1,97 @@
+:root{
+  /* Paleta ESIM */
+  --brand-lime:#D5E03D;     /* header vibrante */
+  --brand-green:#69C06F;    /* secciones verdes (TecNovedades) */
+  --brand-teal:#52B6A7;     /* footer teal */
+  --fucsia:#FF2EA0;
+  --violeta:#6A3EE7;
+  --cian:#49D6D6;
+  --naranja:#FF7A00;
+  --txt:#1a1a1a;
+  --shadow: 0 10px 30px rgba(0,0,0,.10);
+}
+
+*{box-sizing:border-box}
+body{margin:0;font-family:'Poppins',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--txt);background:#fff;}
+.container{max-width:1100px;margin:28px auto;padding:0 16px}
+.title{font-size:28px;margin:8px 0 16px}
+
+/* Hero */
+.hero{position:relative;background:var(--brand-lime);overflow:hidden}
+.hero-blobs{position:absolute;right:-60px;top:-40px;opacity:.9;max-width:540px;pointer-events:none;animation:float 10s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
+.hero-inner{display:flex;align-items:center;justify-content:space-between;padding:16px 20px}
+.brand-link{display:inline-flex;align-items:center;text-decoration:none}
+.brand-link:hover{opacity:.95}
+.brand-link:focus-visible{outline:2px solid var(--cian);outline-offset:4px;border-radius:6px}
+.logo-img{height:36px;display:block}
+.nav{display:flex;gap:16px}
+.nav-link{color:#1a1a1a;text-decoration:none;font-weight:600;opacity:.95}
+.nav-link:hover{opacity:1}
+
+/* Burbujas decorativas */
+.bubble{position:absolute;border-radius:50%;opacity:.25;animation:bubble 12s ease-in-out infinite}
+.bubble--1{width:26px;height:26px;background:var(--violeta);left:12%;top:18%}
+.bubble--2{width:18px;height:18px;background:var(--fucsia);left:24%;top:8%;animation-duration:14s}
+.bubble--3{width:14px;height:14px;background:var(--cian);left:32%;top:22%;animation-duration:16s}
+@keyframes bubble{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* Botones */
+.btn-pill{background: linear-gradient(90deg, var(--fucsia) 0%, var(--violeta) 100%);color:white;border:0;padding:10px 20px;border-radius:999px;box-shadow:0 8px 18px rgba(0,0,0,.15);cursor:pointer;text-decoration:none;display:inline-block}
+.btn-pill.ghost{background:white;color:#000;border:2px solid rgba(0,0,0,.08)}
+
+/* Cards */
+.card{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:18px;transition:transform .2s ease, box-shadow .2s ease}
+.card:hover{transform:translateY(-4px);box-shadow:0 14px 40px rgba(0,0,0,.15)}
+.tile{border-radius:14px;box-shadow:var(--shadow);padding:18px;background:#fff}
+
+/* Grid */
+.grid-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media (max-width:1000px){.grid-cards{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.grid-cards{grid-template-columns:1fr}}
+
+/* Secciones con onda */
+.section{position:relative;padding:48px 0}
+.section--green{background:var(--brand-green);color:#fff}
+.section--teal{background:var(--brand-teal);color:#fff}
+.wave-top, .wave-bottom{position:absolute;left:0;width:100%;height:70px;pointer-events:none}
+.wave-top{top:-1px;transform:scaleY(-1)}
+.wave-bottom{bottom:-1px}
+
+/* Títulos de sección */
+.section-title{font-weight:700;font-size:28px;color:#432d8b;display:flex;align-items:center;gap:10px;justify-content:center}
+.section-title .dot{width:10px;height:10px;border-radius:50%;background:var(--violeta)}
+
+/* Mensajes flash */
+.messages { margin: 8px 0; }
+.msg { margin-bottom: 8px; border-left: 4px solid var(--cian); }
+.msg-info { border-left-color: var(--cian); }
+.msg-success { border-left-color: #57F287; }
+.msg-warning { border-left-color: var(--naranja); }
+.msg-error { border-left-color: #c00; }
+
+/* Dashboard */
+.toolbar{display:flex;align-items:center;gap:8px;margin:10px 0 8px;flex-wrap:wrap}
+.legend{margin:8px 0; display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+.legend .swatch{width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:6px}
+
+.dash-grid{display:grid;grid-template-columns: 2fr 1fr; gap:20px; align-items: stretch; grid-auto-rows: 1fr}
+.dash-grid > .card:last-child{grid-column: 1 / -1} /* 3er chart ocupa todo el ancho */
+.card-title{margin:0 0 8px 0;font-size:16px;font-weight:700}
+.chart-wrap{position:relative; width:100%; height:360px}
+.card canvas{width:100% !important; height:100% !important}
+@media (max-width: 900px){
+  .dash-grid{grid-template-columns:1fr}
+  .chart-wrap{height:300px}
+}
+
+/* Animaciones de entrada */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease, transform .5s ease}
+.reveal.is-visible{opacity:1;transform:none}
+
+@media (prefers-reduced-motion: reduce){
+  .hero-blobs{animation:none}
+  .bubble{animation:none}
+  .card, .tile{transition:none}
+  .reveal{transition:none}
+}

@@ -2,8 +2,9 @@ from django.urls import path
 from django.views.generic import TemplateView
 from .views import (
     Home, PrestamoRapidoView, DevolucionView, PrestamosActivosView,
-    KPIs, ItemsDisponibles,  # si ya la tenías
-    SignupView, AuthLoginView, AuthLogoutView, DiscordLinkView
+    KPIs, ItemsDisponibles,
+    SignupView, AuthLoginView, AuthLogoutView, DiscordLinkView,
+    ReservasPendientesView, aprobar_reserva, cancelar_reserva
 )
 
 urlpatterns = [
@@ -13,6 +14,9 @@ urlpatterns = [
     path("devolucion/", DevolucionView.as_view(), name="devolucion"),
     path("devolucion/ok/", TemplateView.as_view(template_name="ok.html"), name="devolucion_ok"),
     path("prestamos/activos/", PrestamosActivosView.as_view(), name="prestamos_activos"),
+    path("reservas/pendientes/", ReservasPendientesView.as_view(), name="reservas_pendientes"),
+    path("reservas/<int:rid>/aprobar/", aprobar_reserva, name="aprobar_reserva"),
+    path("reservas/<int:rid>/cancelar/", cancelar_reserva, name="cancelar_reserva"),
     path("dashboard/", TemplateView.as_view(template_name="dashboard.html"), name="dashboard"),
     path("api/stats/kpis/", KPIs.as_view(), name="kpis"),
     path("api/items/", ItemsDisponibles.as_view(), name="items_disponibles"),

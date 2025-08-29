@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.core.validators import MinValueValidator
 from django.conf import settings
 
-# Enums básicos
+# Enumeraciones
 class Turno(models.TextChoices):
     MANANA = "M", "Mañana"
     TARDE = "T", "Tarde"
@@ -23,9 +23,8 @@ class EstadoItem(models.TextChoices):
     DISPONIBLE    = "DISP", "Disponible"
     EN_USO        = "USO",  "En uso"
     MANTENIMIENTO = "MANT", "Mantenimiento"
-    RESERVADO     = "RES",  "Reservado"   # importante para reservas
+    RESERVADO     = "RES",  "Reservado"
 
-# Superior
 class CarreraSup(models.TextChoices):
     TCD  = "TCD",  "Tecnicatura en Ciencia de Datos"
     PTEC = "PTEC", "Profesorado en Tecnologías"
@@ -48,21 +47,26 @@ class Item(models.Model):
 class Prestamo(models.Model):
     item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="prestamos")
     nivel = models.CharField(max_length=3, choices=Nivel.choices)
-    # Para Superior:
     carrera = models.CharField(max_length=4, choices=CarreraSup.choices, null=True, blank=True)
     anio = models.IntegerField(choices=AnioSup.choices, null=True, blank=True)
 
     turno = models.CharField(max_length=1, choices=Turno.choices)
     aula = models.CharField(max_length=20, blank=True)
-    solicitante = models.CharField(max_length=80, blank=True)
+    solicitante = models.CharField(max_length=80, blank=True)  # username
 
     inicio = models.DateTimeField(default=timezone.now)
     fin_prevista = models.DateTimeField(null=True, blank=True)
     fin_real = models.DateTimeField(null=True, blank=True)
     duracion_horas = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True,
                                          validators=[MinValueValidator(0)])
-    estado = models.CharField(max_length=10, default="activo")  # activo/devuelto/atrasado
+    estado = models.CharField(max_length=10, default="activo")
     observaciones = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        # Regla institucional: Superior => Turno Noche
+        if self.nivel == Nivel.SUPERIOR:
+            self.turno = Turno.NOCHE
+        super().save(*args, **kwargs)
 
     def cerrar(self, cuando=None):
         if self.fin_real:
@@ -93,19 +97,33 @@ class Mantenimiento(models.Model):
         self.fecha_cierre = timezone.now()
         self.save(update_fields=["estado","fecha_cierre"])
 
-# Reservas (para Discord y Web)
+# Reservas con aprobación
 class Reserva(models.Model):
+    ESTADOS = [
+        ("activa", "Activa"),
+        ("convertida", "Convertida"),
+        ("cancelada", "Cancelada"),
+        ("expirada", "Expirada"),
+    ]
     item = models.ForeignKey(Item, on_delete=models.PROTECT, null=True, blank=True, related_name="reservas")
     tipo = models.CharField(max_length=2, choices=TipoItem.choices)
     nivel = models.CharField(max_length=3, choices=Nivel.choices)
     turno = models.CharField(max_length=1, choices=Turno.choices)
     aula = models.CharField(max_length=20, blank=True)
-    solicitante = models.CharField(max_length=80, blank=True)
+    solicitante = models.CharField(max_length=80, blank=True)   # username
     discord_user_id = models.CharField(max_length=32, blank=True)
     inicio = models.DateTimeField(auto_now_add=True)
     expira = models.DateTimeField()
-    estado = models.CharField(max_length=12, default="activa")  # activa/cancelada/convertida/expirada
+    estado = models.CharField(max_length=12, choices=ESTADOS, default="activa")
     observaciones = models.TextField(blank=True)
+
+    aprobada_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                     on_delete=models.SET_NULL, related_name="reservas_aprobadas")
+    aprobada_at = models.DateTimeField(null=True, blank=True)
+    cancelada_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                      on_delete=models.SET_NULL, related_name="reservas_canceladas")
+    cancelada_at = models.DateTimeField(null=True, blank=True)
+    cancel_motivo = models.CharField(max_length=120, blank=True)
 
     def expirar(self):
         if self.estado != "activa":
@@ -115,6 +133,39 @@ class Reserva(models.Model):
         if self.item and self.item.estado == EstadoItem.RESERVADO:
             self.item.estado = EstadoItem.DISPONIBLE
             self.item.save(update_fields=["estado"])
+
+    def cancelar(self, user=None, motivo=""):
+        if self.estado != "activa":
+            return
+        self.estado = "cancelada"
+        self.cancelada_por = user
+        self.cancelada_at = timezone.now()
+        self.cancel_motivo = motivo
+        self.save(update_fields=["estado","cancelada_por","cancelada_at","cancel_motivo"])
+        if self.item and self.item.estado == EstadoItem.RESERVADO:
+            self.item.estado = EstadoItem.DISPONIBLE
+            self.item.save(update_fields=["estado"])
+
+    def aprobar_y_convertir(self, user_aprobador):
+        if self.estado != "activa":
+            return None
+        it = self.item
+        if not it or it.estado not in (EstadoItem.RESERVADO, EstadoItem.DISPONIBLE):
+            return None
+
+        self.aprobada_por = user_aprobador
+        self.aprobada_at = timezone.now()
+        self.estado = "convertida"
+        self.save(update_fields=["aprobada_por","aprobada_at","estado"])
+
+        p = Prestamo.objects.create(
+            item=it, nivel=self.nivel,
+            carrera=None, anio=None,  # si querés, setear desde Profile del solicitante
+            turno=self.turno, aula=self.aula, solicitante=self.solicitante, fin_prevista=None
+        )
+        it.estado = EstadoItem.EN_USO
+        it.save(update_fields=["estado"])
+        return p
 
 # Usuarios y Discord
 class Profile(models.Model):

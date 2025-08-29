@@ -2,84 +2,102 @@
 {% block content %}
 <h1 class="title">Dashboard</h1>
 
-<div class="toolbar">
-  <label>Tipo:</label>
-  <select id="tipo">
-    <option value="">Todos</option>
-    <option value="NB">Notebooks</option>
-    <option value="TB">Tablets</option>
-    <option value="AL">Alargues</option>
-  </select>
-  <label style="margin-left:12px;">Días:</label>
-  <select id="days">
-    <option value="7">7</option>
-    <option value="30" selected>30</option>
-    <option value="90">90</option>
-  </select>
-  <label style="margin-left:12px;">Nivel:</label>
-  <select id="nivel">
-    <option value="">Todos</option>
-    <option value="SEC">Secundario</option>
-    <option value="SUP">Superior</option>
-  </select>
-  <span id="wrap-carrera" style="display:none; margin-left:12px;">
-    <label>Carrera:</label>
-    <select id="carrera">
-      <option value="">Todas</option>
-      <option value="TCD">Tec. en Ciencia de Datos</option>
-      <option value="PTEC">Profesorado en Tecnologías</option>
-    </select>
-  </span>
-  <span id="wrap-anio" style="display:none; margin-left:12px;">
-    <label>Año:</label>
-    <select id="anio">
+<div class="card reveal">
+  <div class="toolbar">
+    <label>Tipo:</label>
+    <select id="tipo">
       <option value="">Todos</option>
-      <option value="1">1°</option>
-      <option value="2">2°</option>
+      <option value="NB">Notebooks</option>
+      <option value="TB">Tablets</option>
+      <option value="AL">Alargues</option>
     </select>
-  </span>
+    <label style="margin-left:12px;">Días:</label>
+    <select id="days">
+      <option value="7">7</option>
+      <option value="30" selected>30</option>
+      <option value="90">90</option>
+    </select>
+    <label style="margin-left:12px;">Nivel:</label>
+    <select id="nivel">
+      <option value="">Todos</option>
+      <option value="SEC">Secundario</option>
+      <option value="SUP">Superior</option>
+    </select>
+    <span id="wrap-carrera" style="display:none; margin-left:12px;">
+      <label>Carrera:</label>
+      <select id="carrera">
+        <option value="">Todas</option>
+        <option value="TCD">Tec. en Ciencia de Datos</option>
+        <option value="PTEC">Profesorado en Tecnologías</option>
+      </select>
+    </span>
+    <span id="wrap-anio" style="display:none; margin-left:12px;">
+      <label>Año:</label>
+      <select id="anio">
+        <option value="">Todos</option>
+        <option value="1">1°</option>
+        <option value="2">2°</option>
+      </select>
+    </span>
+  </div>
+  <div class="legend">
+    <span class="swatch" style="background:#6A3EE7"></span> Notebooks
+    <span class="swatch" style="background:#49D6D6"></span> Tablets
+    <span class="swatch" style="background:#FF7A00"></span> Alargues
+  </div>
 </div>
 
 <div class="dash-grid">
-  <div class="card">
+  <div class="card reveal">
     <h3 class="card-title">Top por horas</h3>
     <div class="chart-wrap"><canvas id="top"></canvas></div>
   </div>
-  <div class="card">
+  <div class="card reveal">
     <h3 class="card-title">Uso por turno</h3>
     <div class="chart-wrap"><canvas id="turnos"></canvas></div>
+  </div>
+  <div class="card reveal">
+    <h3 class="card-title">Horas por tipo</h3>
+    <div class="chart-wrap"><canvas id="horasTipo"></canvas></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const TYPE_COLORS = { NB: '#6A3EE7', TB: '#49D6D6', AL: '#FF7A00' };
+let barChart, donutChart, barTipoChart;
 
-let barChart, donutChart;
+function toggleSuperiorFields(){
+  const nivel = document.getElementById('nivel').value;
+  const sup = nivel === 'SUP';
+  document.getElementById('wrap-carrera').style.display = sup ? 'inline-block' : 'none';
+  document.getElementById('wrap-anio').style.display = sup ? 'inline-block' : 'none';
+}
 
 async function fetchData() {
-  const tipo = document.getElementById('tipo')?.value || "";
-  const days = document.getElementById('days')?.value || "30";
-  const nivel = document.getElementById('nivel')?.value || "";
-  const carrera = document.getElementById('carrera')?.value || "";
-  const anio = document.getElementById('anio')?.value || "";
+  const params = new URLSearchParams();
+  const tipo = document.getElementById('tipo').value;
+  const days = document.getElementById('days').value;
+  const nivel = document.getElementById('nivel').value;
+  const carrera = document.getElementById('carrera').value;
+  const anio = document.getElementById('anio').value;
 
-  const params = new URLSearchParams({ days });
   if (tipo) params.append('tipo', tipo);
+  if (days) params.append('days', days);
   if (nivel) params.append('nivel', nivel);
   if (nivel === 'SUP') {
     if (carrera) params.append('carrera', carrera);
     if (anio) params.append('anio', anio);
   }
-  const res = await fetch(`/api/stats/kpis?${params.toString()}`);
-  return await res.json();
+  const r = await fetch(`/api/stats/kpis/?${params.toString()}`);
+  return await r.json();
 }
 
 function makeBar(ctx, labels, data, colors) {
   return new Chart(ctx, {
     type: 'bar',
     data: { labels, datasets: [{ label: 'Horas', data, backgroundColor: colors, borderRadius: 6 }] },
-    options: { responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}}, plugins:{legend:{display:false}} }
+    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
   });
 }
 
@@ -87,49 +105,49 @@ function makeDonut(ctx, labels, data) {
   return new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data, backgroundColor:['#FF2EA0','#6A3EE7','#49D6D6'] }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+  });
+}
+
+function makeBarTipo(ctx, labels, data) {
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Horas', data, backgroundColor:[ '#6A3EE7','#49D6D6','#FF7A00' ], borderRadius: 6 }] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
   });
 }
 
 async function load() {
+  toggleSuperiorFields();
   const d = await fetchData();
-  const labels = d.top_items.map(x => x.item__code);
-  const horas = d.top_items.map(x => x.horas);
-  const colors = d.top_items.map(x => TYPE_COLORS[x.item__tipo] || '#999');
 
-  const topCtx = document.getElementById('top').getContext('2d');
-  const turnosCtx = document.getElementById('turnos').getContext('2d');
+  // Top
+  const labelsTop = d.top_items.map(x => x.item__code);
+  const horasTop = d.top_items.map(x => x.horas);
+  const colorsTop = d.top_items.map(x => TYPE_COLORS[x.item__tipo] || '#999');
 
   if (barChart) barChart.destroy();
-  if (donutChart) donutChart.destroy();
+  barChart = makeBar(document.getElementById('top').getContext('2d'), labelsTop, horasTop, colorsTop);
 
-  barChart = makeBar(topCtx, labels, horas, colors);
-  const uso = d.uso_por_turno;
-  donutChart = makeDonut(turnosCtx, Object.keys(uso), Object.values(uso));
+  // Turnos
+  const uso = d.uso_por_turno || {};
+  if (donutChart) donutChart.destroy();
+  donutChart = makeDonut(document.getElementById('turnos').getContext('2d'), Object.keys(uso), Object.values(uso));
+
+  // Horas por tipo (NB/TB/AL) — requiere que el backend devuelva horas_por_tipo
+  if (d.horas_por_tipo) {
+    const labelsTipo = ['NB','TB','AL'];
+    const dataTipo = labelsTipo.map(k => d.horas_por_tipo[k] || 0);
+    if (barTipoChart) barTipoChart.destroy();
+    barTipoChart = makeBarTipo(document.getElementById('horasTipo').getContext('2d'), ['Notebooks','Tablets','Alargues'], dataTipo);
+  }
 }
 
 ['tipo','days','nivel','carrera','anio'].forEach(id=>{
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', load);
 });
-
-// Mostrar/ocultar carrera/año según nivel
-function toggleSuperiorFields(){
-  const nivel = document.getElementById('nivel').value;
-  const sup = nivel === 'SUP';
-  document.getElementById('wrap-carrera').style.display = sup ? 'inline-block' : 'none';
-  document.getElementById('wrap-anio').style.display = sup ? 'inline-block' : 'none';
-}
-document.getElementById('nivel')?.addEventListener('change', ()=>{ toggleSuperiorFields(); load(); });
 toggleSuperiorFields();
-
 load();
 </script>
-
-<!-- Una leyenda simple debajo del gráfico -->
-<div class="legend">
-  <span class="swatch" style="background:#6A3EE7"></span> Notebooks
-  <span class="swatch" style="background:#49D6D6"></span> Tablets
-  <span class="swatch" style="background:#FF7A00"></span> Alargues
-</div>
 {% endblock %}

@@ -2,51 +2,79 @@
 {% block content %}
 <h1 class="title">Préstamo rápido</h1>
 
+{% if form.errors %}
+  <div class="card" style="border-left:4px solid #c00; margin-bottom:12px;">
+    <strong>Revisá el formulario:</strong>
+    <ul style="margin:8px 0 0 16px;">
+      {% for field in form %}
+        {% for e in field.errors %}
+          <li><strong>{{ field.label }}:</strong> {{ e }}</li>
+        {% endfor %}
+      {% endfor %}
+      {% for e in form.non_field_errors %}
+        <li>{{ e }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
 <form method="post" class="form">
   {% csrf_token %}
-  {{ form.non_field_errors }}
 
   <p>
     <label for="id_tipo">Tipo de ítem:</label>
     {{ form.tipo }}
+    {% for e in form.tipo.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
 
   <p>
     <label for="id_code">Número:</label>
     {{ form.code }}
     <small id="no-disponibles" style="display:none;color:#c00">No hay disponibles de este tipo.</small>
+    {% for e in form.code.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
 
   <p>
     <label for="id_nivel">Nivel:</label>
     {{ form.nivel }}
+    {% for e in form.nivel.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
 
   <div id="sup-extra" style="display:none">
     <p>
       <label for="id_carrera">Carrera (Superior):</label>
       {{ form.carrera }}
+      {% for e in form.carrera.errors %}<small class="err">{{ e }}</small>{% endfor %}
     </p>
     <p>
       <label for="id_anio">Año (Superior):</label>
       {{ form.anio }}
+      {% for e in form.anio.errors %}<small class="err">{{ e }}</small>{% endfor %}
     </p>
   </div>
 
   <p>
     <label for="id_turno">Turno:</label>
     {{ form.turno }}
+    <!-- hidden para enviar turno cuando el select está disabled (Superior=Noche) -->
+    <input type="hidden" name="turno" id="turno_hidden" value="">
+    {% for e in form.turno.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
 
   <p>
     <label for="id_aula">Aula:</label>
     {{ form.aula }}
+    {% for e in form.aula.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
 
   <p>
     <label for="id_solicitante">Solicitante:</label>
     {{ form.solicitante }}
+    <small>Se usará tu usuario de la plataforma.</small>
+    {% for e in form.solicitante.errors %}<small class="err">{{ e }}</small>{% endfor %}
   </p>
+
+  <p><small>Nota: Para Nivel Superior se asigna automáticamente Turno Noche.</small></p>
 
   <button class="btn-pill" id="btn-submit">Registrar préstamo</button>
 </form>
@@ -58,6 +86,9 @@ const noDisp = document.getElementById('no-disponibles');
 const btn = document.getElementById('btn-submit');
 const nivelSel = document.getElementById('id_nivel');
 const supExtra = document.getElementById('sup-extra');
+const turnoSel = document.getElementById('id_turno');
+const turnoHidden = document.getElementById('turno_hidden');
+const solicitante = document.getElementById('id_solicitante');
 
 async function cargarNumeros(tipo){
   try{
@@ -78,13 +109,36 @@ async function cargarNumeros(tipo){
     }
   }catch(e){ console.error(e); }
 }
-function toggleSup(){ supExtra.style.display = (nivelSel.value === 'SUP') ? 'block' : 'none'; }
 
-tipoSel.addEventListener('change', e => cargarNumeros(e.target.value));
-nivelSel.addEventListener('change', toggleSup);
+function toggleSup(){
+  supExtra.style.display = (nivelSel.value === 'SUP') ? 'block' : 'none';
+  fixTurno();
+}
 
-// inicial
-cargarNumeros(tipoSel.value);
+function fixTurno(){
+  if (!turnoSel || !turnoHidden) return;
+  if(nivelSel.value === 'SUP'){
+    turnoSel.value = 'N';
+    turnoSel.disabled = true;
+    turnoHidden.disabled = false;
+    turnoHidden.value = 'N';
+  }else{
+    turnoSel.disabled = false;
+    turnoHidden.disabled = true;
+    turnoHidden.value = '';
+  }
+}
+
+tipoSel?.addEventListener('change', e => cargarNumeros(e.target.value));
+nivelSel?.addEventListener('change', toggleSup);
+
+// Inicial
+if (tipoSel) cargarNumeros(tipoSel.value);
 toggleSup();
+if (solicitante) solicitante.readOnly = true;
 </script>
+
+<style>
+.err { color:#c00; display:block; margin-top:4px; }
+</style>
 {% endblock %}

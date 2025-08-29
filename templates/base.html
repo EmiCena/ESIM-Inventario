@@ -1,33 +1,47 @@
+{% load static %}
 {% load roles %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ESI Inventario</title>
+  <title>ESIM Inventario</title>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/log_esim1.png' %}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'img/log_esim1.png' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/log_esim1.png' %}">
+  <meta name="theme-color" content="#49D6D6">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
 </head>
 <body>
   <header class="hero">
-    <img src="/static/img/bg-blobs.svg" alt="" class="hero-blobs">
+    <!-- blobs y burbujas decorativas -->
+    <img src="{% static 'img/bg-blobs.svg' %}" alt="" class="hero-blobs">
+    <span class="bubble bubble--1"></span>
+    <span class="bubble bubble--2"></span>
+    <span class="bubble bubble--3"></span>
+
     <div class="hero-inner">
       <div class="brand">
-        <img src="/static/img/logo-esi-blanco.png" alt="Escuela Secundaria de Innovación Misiones" class="logo-img">
+        <a href="{% url 'home' %}" class="brand-link" aria-label="Ir al inicio">
+          <img src="{% static 'img/logo-esi-blanco.png' %}" alt="Escuela Secundaria de Innovación Misiones" class="logo-img">
+        </a>
       </div>
       <nav class="nav">
-        <a href="/" class="nav-link">Inicio</a>
-
+        <a href="{% url 'home' %}" class="nav-link">Inicio</a>
         {% if request.user.is_authenticated %}
           <a href="/prestamo/" class="nav-link">Préstamo</a>
           <a href="/devolucion/" class="nav-link">Entrega</a>
-
           {% has_role request.user 'OPERADOR' 'STAFF' as es_operador %}
           {% if es_operador %}
             <a href="/prestamos/activos/" class="nav-link">En uso ahora</a>
+            <a href="/reservas/pendientes/" class="nav-link">Reservas</a>
+            <a href="/prestamos/activos/" class="nav-link">En uso ahora</a>
           {% endif %}
-
           <a href="/dashboard/" class="nav-link">Dashboard</a>
           <a href="/accounts/discord/" class="nav-link">Discord</a>
           <a href="/accounts/logout/" class="nav-link">Salir ({{ request.user.username }})</a>
@@ -41,17 +55,38 @@
     </div>
   </header>
 
-  <main class="container">
+  <main class="container main">
     {% if messages %}
-      <div style="margin:8px 0">
+      <div class="messages">
         {% for m in messages %}
-          <div class="card" style="border-left:4px solid {% if m.tags == 'error' %}#c00{% else %}#49D6D6{% endif %}; margin-bottom:8px;">
-            {{ m }}
-          </div>
+          {% with tag=m.tags|default:"info" %}
+          <div class="card msg msg-{{ tag }}">{{ m }}</div>
+          {% endwith %}
         {% endfor %}
       </div>
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  
+  <footer class="site-footer">
+    <div class="container" style="text-align:center">
+      <h3 style="margin-top:0">Contactanos</h3>
+      <p>Instagram · Facebook · Twitter · WhatsApp · YouTube</p>
+      <p>Emails: Nivel Superior · Info/CV · Formación Continua</p>
+    </div>
+  </footer>
+
+  <!-- Animación de reveal al hacer scroll -->
+  <script>
+  (function(){
+    const els = document.querySelectorAll('.reveal');
+    if (!els.length) return;
+    if (!('IntersectionObserver' in window)) { els.forEach(el=>el.classList.add('is-visible')); return; }
+    const io = new IntersectionObserver((entries)=>{
+      for (const e of entries){ if (e.isIntersecting){ e.target.classList.add('is-visible'); io.unobserve(e.target);} }
+    }, {threshold:.14});
+    els.forEach(el=>io.observe(el));
+  })();
+  </script>
 </body>
 </html>

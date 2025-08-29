@@ -1,12 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
+<section class="card reveal">
   <h1 class="title">Gestión de Préstamos</h1>
-  <p>Registrar préstamo y devolución en segundos. Dashboard por horas y reportes a Discord.</p>
-  <div class="actions">
-    <a class="btn-pill" href="/prestamo/">➕ Registrar préstamo</a>
-    <a class="btn-pill ghost" href="/devolucion/">✅ Registrar devolución</a>
-    <a class="btn-pill ghost" href="/dashboard/">📊 Ver dashboard</a>
+  <p>Registrar préstamo y entrega en segundos. Dashboard por horas y reportes a Discord.</p>
+  <div class="actions" style="display:flex; gap:12px; flex-wrap:wrap">
+    <a class="btn-pill" href="{% url 'prestamo' %}">➕ Registrar préstamo</a>
+    <a class="btn-pill ghost" href="{% url 'devolucion' %}">✅ Registrar entrega</a>
+    <a class="btn-pill ghost" href="{% url 'dashboard' %}">📊 Ver dashboard</a>
   </div>
 </section>
 {% endblock %}
+
+<!-- Footer teal estilo ESIM (queda) -->
+<section class="section section--teal" style="margin-top:28px">
+  <div class="container reveal" style="text-align:center">
+    <h3 style="margin-top:0">Contactanos</h3>
+    <p>Instagram · Facebook · Twitter · WhatsApp · YouTube</p>
+    <p>Emails: Nivel Superior · Info/CV · Formación Continua</p>
+  </div>
+</section>

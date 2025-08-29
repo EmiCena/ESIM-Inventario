@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="title">Registro</h1>
+
+<form method="post" class="form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <p>
+    {{ form.username.label_tag }}<br>
+    {{ form.username }}
+    {% if form.username.help_text %}<small class="help">{{ form.username.help_text }}</small>{% endif %}
+    {% for e in form.username.errors %}<small class="err">{{ e }}</small>{% endfor %}
+  </p>
+
+  <p>{{ form.first_name.label_tag }}<br>{{ form.first_name }}{% for e in form.first_name.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+  <p>{{ form.last_name.label_tag  }}<br>{{ form.last_name  }}{% for e in form.last_name.errors  %}<small class="err">{{ e }}</small>{% endfor %}</p>
+
+  <p>{{ form.password1.label_tag }}<br>{{ form.password1 }}{% for e in form.password1.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+  <p>{{ form.password2.label_tag }}<br>{{ form.password2 }}{% for e in form.password2.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+
+  <hr>
+
+  <p>{{ form.nivel.label_tag }}<br>{{ form.nivel }}{% for e in form.nivel.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+
+  <div id="sup-extra" style="display:none">
+    <p>{{ form.carrera.label_tag }}<br>{{ form.carrera }}{% for e in form.carrera.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+    <p>{{ form.anio.label_tag }}<br>{{ form.anio }}{% for e in form.anio.errors %}<small class="err">{{ e }}</small>{% endfor %}</p>
+  </div>
+
+  <p>
+    {{ form.join_code.label_tag }}<br>
+    {{ form.join_code }}
+    {% if form.join_code.help_text %}<small class="help">{{ form.join_code.help_text }}</small>{% endif %}
+    {% for e in form.join_code.errors %}<small class="err">{{ e }}</small>{% endfor %}
+  </p>
+
+  <button class="btn-pill">Crear cuenta</button>
+</form>
+
+<script>
+const nivelSel = document.getElementById('id_nivel');
+const supExtra = document.getElementById('sup-extra');
+function toggleSup(){ supExtra.style.display = (nivelSel.value === 'SUP') ? 'block' : 'none'; }
+nivelSel.addEventListener('change', toggleSup); toggleSup();
+</script>
+{% endblock %}

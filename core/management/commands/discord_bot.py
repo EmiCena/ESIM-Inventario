@@ -6,12 +6,10 @@ from datetime import timedelta
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 
-# Configurar Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
 from core.models import (
     Item, Prestamo, Reserva, Profile,
     Nivel, Turno, TipoItem, EstadoItem,
@@ -20,11 +18,11 @@ from core.models import (
 from core.discord import send_discord
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = os.getenv("DISCORD_GUILD_ID")  # recomendado
+GUILD_ID = os.getenv("DISCORD_GUILD_ID")
 
 intents = discord.Intents.default()
 
-# -------- Helpers síncronos envueltos con sync_to_async --------
+# ---- Helpers async (ORM envuelto) ----
 
 @sync_to_async
 def profile_exists_sync(discord_id: int) -> bool:
@@ -44,18 +42,26 @@ def get_perfil_dict_by_discord_sync(discord_id: int) -> dict:
 
 @sync_to_async
 def link_user_by_token_sync(token: str, discord_user_id: int):
+    # Ya vinculado
+    if Profile.objects.filter(discord_user_id=str(discord_user_id)).exists():
+        p = Profile.objects.select_related("user").get(discord_user_id=str(discord_user_id))
+        return ("already", p.user.username)
+
     tok = (DiscordLinkToken.objects
            .filter(token=token, used_at__isnull=True)
            .select_related("user").order_by("-created_at").first())
     if not tok:
-        return False, None
-    # vincular
-    p = Profile.objects.get(user=tok.user)
-    p.discord_user_id = str(discord_user_id)
-    p.save(update_fields=["discord_user_id"])
+        return ("bad", None)
+
+    prof, _ = Profile.objects.get_or_create(user=tok.user)  # <— acá aseguramos que exista
+    if prof.discord_user_id and prof.discord_user_id != str(discord_user_id):
+        return ("user_has_other", tok.user.username)
+
+    prof.discord_user_id = str(discord_user_id)
+    prof.save(update_fields=["discord_user_id"])
     tok.used_at = timezone.now()
     tok.save(update_fields=["used_at"])
-    return True, tok.user.username
+    return ("ok", tok.user.username)
 
 @sync_to_async
 def get_available_codes_sync(tipo: str) -> list[str]:
@@ -63,8 +69,14 @@ def get_available_codes_sync(tipo: str) -> list[str]:
                 .order_by("code").values_list("code", flat=True))
 
 @sync_to_async
+def has_active_reserva_or_prestamo_sync(discord_user_id: int) -> bool:
+    # Bloquear múltiples reservas simultáneas del mismo usuario
+    r_count = Reserva.objects.filter(discord_user_id=str(discord_user_id), estado="activa").count()
+    return r_count > 0
+
+@sync_to_async
 def reserve_first_available_sync(tipo: str, nivel: str, turno: str,
-                                 aula: str, solicitante: str, discord_user_id: str,
+                                 aula: str, solicitante_username: str, discord_user_id: str,
                                  expira) -> str | None:
     it = Item.objects.filter(tipo=tipo, estado=EstadoItem.DISPONIBLE).order_by("code").first()
     if not it:
@@ -73,7 +85,7 @@ def reserve_first_available_sync(tipo: str, nivel: str, turno: str,
     it.save(update_fields=["estado"])
     Reserva.objects.create(
         item=it, tipo=tipo, nivel=nivel, turno=turno,
-        aula=aula, solicitante=solicitante or "",
+        aula=aula, solicitante=solicitante_username,
         discord_user_id=str(discord_user_id),
         expira=expira, estado="activa"
     )
@@ -96,7 +108,7 @@ def start_prestamo_sync(code: str, perfil: dict, turno: str, aula: str):
         res.estado = "convertida"
         res.save(update_fields=["estado"])
 
-    solicitante = (perfil["full_name"] or perfil["user_username"]) if perfil["nivel"] == Nivel.SECUNDARIO else ""
+    solicitante = perfil["user_username"]  # SIEMPRE username
     p = Prestamo.objects.create(
         item=it, nivel=perfil["nivel"],
         carrera=perfil["carrera"] or None, anio=perfil["anio"] or None,
@@ -136,19 +148,17 @@ def status_sync(code: str):
         out["extra"] = f" · En uso desde {p.inicio.astimezone().strftime('%d/%m %H:%M')} · {p.solicitante or 'N/D'}"
     return out
 
-# -------- Bot --------
+# ---- Bot ----
 
 class MyBot(discord.Client):
     def __init__(self):
         super().__init__(intents=intents)
         self.synced = False
-
     async def on_ready(self):
         print(f"Conectado como {self.user} (id: {self.user.id})")
         if not self.synced:
             if GUILD_ID:
                 guild = discord.Object(id=int(GUILD_ID))
-                # copiar globales al guild para que aparezcan al instante
                 tree.copy_global_to(guild=guild)
                 await tree.sync(guild=guild)
                 print(f"Slash sincronizados en guild {GUILD_ID}")
@@ -162,7 +172,6 @@ class MyBot(discord.Client):
 bot = MyBot()
 tree = app_commands.CommandTree(bot)
 
-# Check nativo con BD async
 def is_linked():
     async def predicate(interaction: discord.Interaction) -> bool:
         return await profile_exists_sync(interaction.user.id)
@@ -179,8 +188,6 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     else:
         print("Slash error:", repr(error))
 
-# -------- Comandos --------
-
 @tree.command(name="ping", description="Prueba que el bot está vivo")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong 🏓", ephemeral=True)
@@ -192,11 +199,14 @@ async def serverid(interaction: discord.Interaction):
 @tree.command(name="vincular", description="Vincula tu Discord a tu usuario del sistema")
 async def vincular(interaction: discord.Interaction, token: str):
     await interaction.response.defer(ephemeral=True)
-    ok, username = await link_user_by_token_sync(token, interaction.user.id)
-    if not ok:
-        await interaction.followup.send("Token inválido o ya usado.", ephemeral=True)
-        return
-    await interaction.followup.send("✅ Cuenta vinculada correctamente.", ephemeral=True)
+    status, uname = await link_user_by_token_sync(token, interaction.user.id)
+    msg = {
+        "ok": "✅ Cuenta vinculada correctamente.",
+        "already": "Ya estabas validado: tu cuenta de Discord ya está vinculada.",
+        "bad": "Token inválido o ya usado.",
+        "user_has_other": "Ese token pertenece a un usuario que ya tiene Discord vinculado."
+    }[status]
+    await interaction.followup.send(msg, ephemeral=True)
 
 def _choice_tipo():
     return [
@@ -225,14 +235,18 @@ def guess_turno(nivel: str) -> str:
 async def reservar(interaction: discord.Interaction,
                    tipo: app_commands.Choice[str],
                    minutos: app_commands.Range[int, 5, 180] = 20,
-                   aula: str = ""):
+                   aula: int | None = None):
     await interaction.response.defer(ephemeral=True)
+    if await has_active_reserva_or_prestamo_sync(interaction.user.id):
+        await interaction.followup.send("Ya tenés una reserva o préstamo activo. Entregá o cancelá antes de reservar nuevamente.", ephemeral=True)
+        return
     perfil = await get_perfil_dict_by_discord_sync(interaction.user.id)
-    turno = guess_turno(perfil["nivel"])
+    turno = Turno.NOCHE if perfil["nivel"] == Nivel.SUPERIOR else guess_turno(perfil["nivel"])
     expira = timezone.now() + timedelta(minutes=int(minutos))
     code = await reserve_first_available_sync(
         tipo.value, perfil["nivel"], turno, aula,
-        (perfil["full_name"] or perfil["user_username"]) if perfil["nivel"] == Nivel.SECUNDARIO else "",
+        str(aula) if aula is not None else "",
+        perfil["user_username"],
         perfil["discord_user_id"] or str(interaction.user.id),
         expira
     )
@@ -244,17 +258,13 @@ async def reservar(interaction: discord.Interaction,
 
 @tree.command(name="prestar", description="Inicia un préstamo de un código")
 @is_linked()
-async def prestar(interaction: discord.Interaction, code: str, aula: str = ""):
+async def prestar(interaction: discord.Interaction, code: str, aula: int | None = None):
     await interaction.response.defer(ephemeral=True)
     perfil = await get_perfil_dict_by_discord_sync(interaction.user.id)
-    turno = guess_turno(perfil["nivel"])
-    res = await start_prestamo_sync(code, perfil, turno, aula)
+    turno = Turno.NOCHE if perfil["nivel"] == Nivel.SUPERIOR else guess_turno(perfil["nivel"])
+    res = await start_prestamo_sync(code, perfil, turno, str(aula) if aula is not None else "")
     if "error" in res:
-        msg = {
-            "noexist": "Código inexistente.",
-            "inuse": "El ítem ya está en uso.",
-            "reserved": "Este ítem está reservado por otra persona.",
-        }[res["error"]]
+        msg = {"noexist":"Código inexistente.","inuse":"El ítem ya está en uso.","reserved":"Este ítem está reservado por otra persona."}[res["error"]]
         await interaction.followup.send(msg, ephemeral=True)
         return
     send_discord(f"✅ {perfil['user_username']} inició préstamo de {code} ({res['nivel_disp']} - {res['turno_disp']}).")
@@ -289,7 +299,6 @@ async def status(interaction: discord.Interaction, code: str):
         return
     await interaction.response.send_message(f"{d['code']} · {d['tipo']} · {d['estado']}{d['extra']}", ephemeral=True)
 
-# -------- Django management command --------
 class Command(BaseCommand):
     help = "Inicia el bot de Discord"
     def handle(self, *args, **options):
