@@ -1,196 +1,255 @@
-# ESIM Inventario (Django)
+# ESIM Inventario
 
-Sistema de gestión de préstamos para la Escuela Secundaria de Innovación de Misiones (notebooks, tablets y alargues), con:
-- Préstamo y entrega “en el momento” (login requerido).
-- Medición por horas y dashboard con filtros por tipo, nivel, carrera y año.
-- Reservas y mantenimiento básico.
-- Notificaciones a Discord (webhook) y bot con comandos slash.
-- Estilo visual alineado al sitio actual.
+Sistema de inventario y préstamos (ESIM) en Django 4.2 con:
+- Gestión de préstamos, devoluciones y reservas con aprobación.
+- Dashboard con KPIs.
+- Predicciones (IA/ML) de demanda y riesgo de tardanza.
+- Chat asistente (embebido) para usuarios autenticados.
+- Modo claro/oscuro y estilos unificados.
 
-Demo de rutas
-- Inicio: /
-- Préstamo: /prestamo/
-- Entrega: /devolucion/
-- En uso ahora (solo operadores/staff): /prestamos/activos/
-- Dashboard: /dashboard/
-- Admin: /admin/
-- Registro/Login: /accounts/signup/ y /accounts/login/
-- Vincular Discord: /accounts/discord/
+Índice
+- Requisitos
+- Instalación y arranque
+- Estructura del proyecto
+- Funcionalidades
+- Modelos de datos
+- Roles y permisos
+- Dashboard
+- Chat asistente
+- API de Predicciones (ML)
+- Explicabilidad (¿Cómo se calcula?)
+- Datos sintéticos y entrenamiento ML
+- Tareas programadas (opcional)
+- Theming y modo oscuro
+- Troubleshooting (errores comunes)
+- Roadmap
 
 Requisitos
-- Python 3.10+
-- pip y venv
-- (Opcional) Git
-- Windows, Linux o macOS. Nota: en Windows, las tareas programadas se corren con el Programador de tareas.
+- Python 3.12
+- Pip + venv
+- SQLite (incluido por defecto) u otra BD compatible
+- Node no es necesario (Chart.js via CDN)
 
-Instalación rápida
-1) Clonar y dependencias
-```bash
-git clone <tu-repo> esi-inventario
-cd esi-inventario
-python -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+Dependencias (requirements.txt)
+- Django==4.2.14
+- djangorestframework==3.15.2
+- whitenoise==6.7.0
+- django-crontab==0.7.1
+- numpy>=2.0,<2.3
+- pandas>=2.2,<2.3
+- scipy>=1.12,<1.15
+- scikit-learn==1.5.1
+- joblib>=1.3,<2.0
+- threadpoolctl>=3.5.0
 
-2) Variables de entorno
-```bash
-cp .env.example .env
-```
-Editar .env y completar si hace falta:
-- SECRET_KEY: algo aleatorio (en dev podés dejar el default).
-- DEBUG=True en desarrollo.
+Instalación y arranque
+
+1) Clonar y crear entorno
+- git clone <repo>
+- cd ESIM-Inventario
+- python -m venv .venv
+- .venv\Scripts\activate (Windows) | source .venv/bin/activate (Linux/Mac)
+- pip install -r requirements.txt
+
+2) Variables de entorno (opcional)
+Crea .env (si usas python-dotenv) o configura desde el shell:
+- DEBUG=True
+- SECRET_KEY=tu_clave_segura
+- ALLOWED_HOSTS=127.0.0.1,localhost
 - TIME_ZONE=America/Argentina/Buenos_Aires
-- JOIN_CODE_SEC=SEC-123, JOIN_CODE_SUP=SUP-123, JOIN_CODE_STAFF=STAFF-123 (para registro por nivel).
-- DISCORD_WEBHOOK_URL=URL del webhook del canal (opcional).
-- DISCORD_BOT_TOKEN=token del bot (opcional).
-- DISCORD_GUILD_ID=ID del servidor (opcional pero recomendado para que aparezcan al instante los slash).
 
-3) Base de datos y datos iniciales
-```bash
-python manage.py migrate
-python manage.py seed_items        # Crea NB-01..15, TB-01..05, AL-01..06
-python manage.py bootstrap_roles   # Crea grupos y usuario operador/operador123
-python manage.py createsuperuser   # (opcional) admin
-```
+3) Migraciones y superusuario
+- python manage.py makemigrations
+- python manage.py migrate
+- python manage.py createsuperuser
 
-4) Datos de prueba (para ver el dashboard)
-```bash
-python manage.py seed_fake_data
-```
+4) Arrancar
+- python manage.py runserver
+- http://127.0.0.1:8000/
 
-5) Levantar
-```bash
-python manage.py runserver
-```
-Entrar a http://127.0.0.1:8000/
+Estructura del proyecto (parcial)
+- config/ settings y urls del proyecto
+- core/ app principal
+  - models.py (Item, Prestamo, Reserva, Profile, etc.)
+  - views.py (vistas + API + chatbot + predicciones ML)
+  - ml_runtime.py (carga de modelos y generación de features en runtime)
+  - management/commands/
+    - seed_fake_data.py (datos sintéticos)
+    - train_ml.py (entrena modelos)
+    - eval_ml.py (evalúa modelos)
+  - templates/
+    - base.html (layout principal)
+    - dashboard.html (KPIs y predicciones)
+    - otras vistas (prestamos_activos, reservas_pendientes, etc.)
+- templates/ base global (usada por el motor de plantillas)
+- static/css/theme.css (tema claro/oscuro y estilos)
 
-Usuarios y permisos
-- Registro: /accounts/signup/ (ingresar un “Código de registro” según el nivel; los defaults están en .env).
-- Login requerido para Préstamo y Entrega (cualquier usuario logueado).
-- “En uso ahora” solo operadores/staff. Para dar permisos:
-  - Admin → Users → tu usuario → Groups → agregá “OPERADOR” o “STAFF”.
-  - o por consola (ejemplo):
-    ```python
-    python manage.py shell -c "from django.contrib.auth.models import User,Group; u=User.objects.get(username='tu_usuario'); u.groups.add(Group.objects.get(name='OPERADOR'))"
-    ```
+Funcionalidades
 
-Frontend (flujo rápido)
-- Préstamo: elegí tipo (NB/TB/AL) → número disponible → nivel (y si es SUP, carrera y año) → aula → solicitante (si es SEC) → Registrar.
-- Entrega: ingresá el código (ej. NB-03) → Registrar.
-- En uso ahora: lista de préstamos activos con quién, dónde y desde cuándo.
-- Dashboard: top por horas (colores por tipo), uso por turno, filtros por tipo, días, nivel, carrera, año.
+- Préstamos (Inicio y Devolución)
+- Reservas con aprobación
+  - Usuarios crean una reserva (asignada a un ítem) con expiración a las 23:00.
+  - Staff (OPERADOR/STAFF o superuser) aprueba/convierte a préstamo en “Reservas pendientes”.
+- Dashboard de uso:
+  - Top por horas, uso por turno, horas por tipo, KPIs.
+  - Predicción de demanda (modo lag7 recomendado).
+  - Riesgo de devolución tardía (experimental).
+  - Sección “¿Cómo se calcula?” para ver el desglose de contribuciones del modelo.
+- Chat asistente (solo autenticados):
+  - Reservar por código (NB-01, TB-03, etc.), listar/cancelar reservas.
+  - Registrar devoluciones (si el usuario tiene ese préstamo activo).
+  - Estado de conversación efímero en sesión.
 
-Discord: notificaciones (webhook)
-1) Crear webhook en tu canal de Discord
-- Channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL.
-- Pegá la URL en .env: DISCORD_WEBHOOK_URL=...
+Modelos de datos (core/models.py)
+- Item(code, tipo, estado, uso_acumulado_horas, usos_acumulados, …)
+- Prestamo(item, nivel, turno, aula, solicitante, inicio, fin_prevista, fin_real, estado, …)
+  - método cerrar() actualiza estadísticas del ítem y lo deja disponible.
+- Reserva(item, tipo, nivel, turno, aula, solicitante, expira, estado, …)
+  - expirar(), cancelar(), aprobar_y_convertir()
+- Profile(user, nivel, carrera, anio, discord_user_id)
+- DiscordLinkToken(user, token, …) (opcional para integraciones)
 
-2) Probar
-```bash
-python manage.py shell -c "from core.discord import send_discord; send_discord('Prueba de webhook ✅')"
-```
+Roles y permisos
+- Usuarios autenticados:
+  - Pueden iniciar préstamos (vista préstamo), devolver, crear reservas desde el chat.
+- Staff (grupos OPERADOR, STAFF) y superuser:
+  - Ven “En uso ahora” y “Reservas pendientes”.
+  - Pueden aprobar/cancelar reservas (mostrador).
+- Seguridad:
+  - Widget del chat solo aparece para autenticados.
+  - Endpoints sensibles con @login_required y CSRF.
 
-Discord: bot con slash commands
-1) Crear la app y el bot
-- https://discord.com/developers/applications → New Application.
-- Bot → Add Bot → Reset Token → copiá el token → DISCORD_BOT_TOKEN en .env.
-- Installation (o OAuth2 → URL Generator):
-  - Scopes: bot y applications.commands
-  - Permisos: View Channels, Send Messages, Read Message History, (opcional) Embed Links, Attach Files.
-  - Usá el Install Link para invitar el bot a TU servidor (necesitás “Manage Server”).
+Dashboard
 
-2) DISCORD_GUILD_ID (para que los slash aparezcan al instante)
-- En Discord: activá Developer Mode → click derecho al servidor → Copy Server ID → pegalo en .env como DISCORD_GUILD_ID=123...
+- KPIs (GET /api/stats/kpis/)
+  - top_items (por horas)
+  - uso_por_turno
+  - horas_por_tipo
+  - métricas varias (duración promedio, en mantenimiento, etc.)
+- Predicción de demanda (GET /api/predicciones_ml/?kind=demanda)
+  - Modo lag7: promedio últimos 7 días por tipo/turno (recomendado y plano).
+  - Modo dow: promedio histórico por día de semana (muestra dientes de sierra).
+  - Modo lastweek: repite patrón de la última semana.
+  - Modo ml / ensemble: modelo ML y mezcla con lag7.
+- Riesgo de tardanza (experimental)
+  - Predicción calibrada con bandas: bajo/medio/alto (umbrales configurables en query).
 
-3) Correr el bot (otra terminal)
-```bash
-python manage.py discord_bot
-```
-- Vas a ver: “Conectado como ...” y “Slash sincronizados en guild ...”.
+Chat asistente (embebido)
 
-4) Vincular tu usuario y probar
-- Web: /accounts/discord/ → Generar token.
-- En tu servidor: escribí “/” y elegí los comandos del menú (no como texto):
-  - /vincular TOKEN
-  - /ping → “Pong 🏓”
-  - /disponibles NB
-  - /reservar NB
-  - /prestar NB-01
-  - /status NB-01
-  - /entregar NB-01
-  - /activos
+- Está incluido en templates/base.html y estilizado en static/css/theme.css
+- Flujos:
+  - “Reservar NB-01”: guía con nivel/carrera/año/aula, confirma y crea la reserva.
+  - “Devolver NB-01/Entregar NB-01”: confirma y cierra préstamo del usuario si está activo.
+  - “Mis reservas”, “Mis préstamos”, “Cancelar reserva”.
+- Estado conversacional: efímero en session (no se persiste a BD).
 
-Notas:
-- Las respuestas del bot son ephemerales (solo las ves vos).
-- Si los slash no aparecen: verificá el DISCORD_GUILD_ID, reiniciá el bot, y que “Use Application Commands” esté permitido en el canal. Sin GUILD_ID, los comandos globales pueden demorar hasta 1 h.
+API de Predicciones (ML)
 
-Tareas programadas (reservas y reportes)
-- Expirar reservas: python manage.py expire_reservas
-- Reporte semanal: python manage.py weekly_report
+1) Demanda
+- GET /api/predicciones_ml/?kind=demanda&h=7&mode=lag7|ml|ensemble|dow|lastweek&w=0.6
+Parámetros:
+- h: horizonte en días (1–30).
+- mode:
+  - lag7 (default): valor plano = promedio 7 días.
+  - dow: media histórica por día de semana.
+  - lastweek: repite patrón de la semana pasada.
+  - ml: modelo PoissonRegressor (IA).
+  - ensemble: w*lag7 + (1-w)*ml (w por query).
+Respuesta: lista de {date, tipo, turno, pred}.
 
-Linux
-```bash
-python manage.py crontab add
-python manage.py crontab show
-```
-Windows (recomendado)
-- Programador de tareas → Crear tarea:
-  - Acción: cmd
-  - Argumentos: /c cd C:\ruta\esi-inventario && C:\ruta\python.exe manage.py expire_reservas
-  - Disparador: cada 5 minutos
-  - Otra tarea (semanal): manage.py weekly_report (viernes 18:00)
+2) Tardanza
+- GET /api/predicciones_ml/?kind=tardanza&tipo=NB&nivel=SEC&turno=N&thr_med=0.4&thr_high=0.65&hour=18&dur=2.0&date=YYYY-MM-DD
+Parámetros:
+- tipo: NB | TB | AL
+- nivel: SEC | SUP | PER
+- turno: M | T | N
+- hour, dur, date: opcionales para ajustar el contexto
+- thr_med, thr_high: umbrales para bandas medio/alto
+Respuesta: {score, tier (bajo/medio/alto), thresholds, experimental:true}
 
-Configuración visual
-- Logo: static/img/logo-esi-blanco.png
-- Estilos: static/css/theme.css (paleta: lima, fucsia, violeta, cian, naranja).
-- Los charts usan Chart.js y se adaptan a mobile.
+Notas de precisión:
+- En tus métricas actuales, lag7 supera al ML en demanda (usa lag7 como default).
+- Tardanza tiene señal moderada (AUC ~0.58); úsalo como ranking con avisos suaves.
 
-Estructura (resumen)
-- config/: settings, urls, wsgi/asgi
-- core/:
-  - models.py (Item, Prestamo, Reserva, Mantenimiento, Profile, DiscordLinkToken)
-  - forms.py (PrestamoRapidoForm, DevolucionForm, SignupForm)
-  - views.py (préstamo, entrega, activos, KPIs, auth)
-  - admin.py
-  - management/commands/ (seed_items, seed_fake_data, weekly_report, expire_reservas, discord_bot, bootstrap_roles)
-  - discord.py (webhook)
-  - templatetags/roles.py
-- templates/: base y páginas
-- static/: css, imágenes
+Explicabilidad (¿Cómo se calcula?)
 
-Solución de problemas frecuentes
-- “no such table: core_...” → faltan migraciones
-  ```bash
-  python manage.py makemigrations core
-  python manage.py migrate
-  ```
-- 403 en /prestamo/ → ahora alcanza login (si ves 403, limpiá caché o revisá que no hayas dejado el mixin de operador).
-- “Los slash no aparecen” → DISCORD_GUILD_ID mal, permisos del canal, o no se invitó con applications.commands.
-- “Application didn’t respond” → el bot no está corriendo; volvé a iniciar python manage.py discord_bot.
-- Webhook no envía → verificá DISCORD_WEBHOOK_URL y probá con requests (status 204 es OK).
-- “database is locked” (SQLite + OneDrive) → mové el proyecto fuera de OneDrive o pausá la sincronización.
+- GET /api/predicciones_ml/explain/
+  - Demanda:
+    - ?kind=demanda&date=YYYY-MM-DD&tipo=NB&turno=N&mode=ml&w=0.7
+    - Devuelve contribuciones en escala log del modelo ML (Poisson).
+  - Tardanza:
+    - ?kind=tardanza&tipo=NB&nivel=SEC&turno=N&hour=18&dur=2&date=YYYY-MM-DD
+    - Devuelve contribuciones de la regresión logística base (antes de calibración).
+- El dashboard incluye una tarjeta “¿Cómo se calcula?” para consultar y mostrar top de features.
 
-Comandos útiles
-```bash
-# iniciar servidor
-python manage.py runserver
+Datos sintéticos y entrenamiento ML
 
-# crear ítems base
-python manage.py seed_items
+1) Generar históricos (seed)
+- python manage.py seed_fake_data --days 365 --clear
+Genera ítems (si faltan) y préstamos históricos con:
+- estacionalidad semanal
+- semanas de exámenes (junio/noviembre)
+- mayor tardanza en noche/superior/cerca de 22:00
 
-# datos demo
-python manage.py seed_fake_data
+2) Entrenar modelos
+- python manage.py train_ml
+Guarda modelos en core/ml_models/
+- demand_model.joblib (+ demand_meta.json con train_start_day)
+- late_model.joblib (+ late_meta.json)
 
-# dashboard (ver)
-http://127.0.0.1:8000/dashboard/
+3) Evaluar (métricas)
+- python manage.py eval_ml
+Genera core/ml_models/metrics_report.json con:
+- Demanda: MAE, RMSE, WAPE, sMAPE vs baselines (dow y lag7).
+- Tardanza: AUC, AP, Brier, Acc, BalancedAcc; F1 en umbral 0.5 y umbral óptimo.
 
-# bot
-python manage.py discord_bot
+4) Consumir predicciones (front o curl)
+- curl "http://127.0.0.1:8000/api/predicciones_ml/?kind=demanda&h=7&mode=lag7"
+- curl "http://127.0.0.1:8000/api/predicciones_ml/?kind=tardanza&tipo=NB&nivel=SEC&turno=N&thr_med=0.2&thr_high=0.45"
 
-# webhook (test)
-python manage.py shell -c "from core.discord import send_discord; send_discord('Ping ✅')"
-```
+Tareas programadas (opcional)
+
+- Reentrenar semanalmente y evaluar:
+  - django-crontab está instalado. Ejemplo de cron:
+    - python manage.py crontab add
+    - Define en settings.py CRONJOBS con:
+      - ("0 3 * * 1", "django.core.management.call_command", ["train_ml"])
+      - ("10 3 * * 1", "django.core.management.call_command", ["eval_ml"])
+
+Theming y modo oscuro
+
+- CSS centralizado en static/css/theme.css con variables CSS:
+  - Modo claro por defecto.
+  - Modo oscuro si el sistema lo prefiere o si el usuario toca el toggle (🌓 en nav).
+- El chat está rediseñado para verse bien en ambos modos:
+  - .chat-widget, .chat-card, .chat-bubble, .chat-chip, etc.
+
+Troubleshooting
+
+- TemplateDoesNotExist: base.html
+  - Verifica config/settings.py: TEMPLATES.DIRS = [BASE_DIR / 'templates'] y APP_DIRS=True.
+  - No pongas {% extends "base.html" %} dentro de base.html (crea recursión).
+- CSRF 403 en /api/chat/:
+  - El widget solo funciona bajo el mismo dominio/puerto. Asegurate de tener el cookie csrftoken.
+- “columns are missing: {‘trend_idx’, ‘is_exam’}”:
+  - Actualiza core/ml_runtime.py (demand_feature_row y late_feature_row devuelven todas las columnas esperadas).
+  - Vuelve a entrenar para generar demand_meta.json con train_start_day.
+- CalibratedClassifierCV “base_estimator”:
+  - Usamos estimator= para scikit-learn>=1.3; hay fallback a base_estimator si tu versión es anterior.
+- Gráfico de demanda “línea recta”:
+  - Es normal en modo lag7. Usa “dow” o “lastweek” para ver estacionalidad semanal.
+
+Roadmap (sugerencias)
+- Demanda:
+  - Ensemble como default (0.7 lag7 + 0.3 ML) si supera WAPE de lag7 durante varias semanas.
+  - Modelos alternativos: HistGradientBoostingRegressor, Tweedie, validación temporal.
+- Tardanza:
+  - Más features operativas: reservas del día, disponibilidad, minutos hasta 23:00, feriados reales.
+  - Calibración Platt/Isotónica ya incluida; probar árboles (HGB/XGBoost).
+- Chat:
+  - Permitir staff convertir reservas desde el chat (opcional).
+  - Soporte de búsqueda natural (“buscar notebook python”).
+- Auditoría:
+  - Guardar historial de predicciones y performance real para seguimiento.
+
+¿Dudas o sugerencias? Abrí un issue en el repo o contactá al responsable del proyecto.
