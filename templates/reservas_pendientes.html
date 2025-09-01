@@ -12,7 +12,7 @@
   {% for r in pendientes %}
     <tr>
       <td>{{ r.id }}</td>
-      <td>{{ r.item.code if r.item else "-" }}</td>
+      <td>{% firstof r.item.code "-" %}</td>
       <td>{{ r.get_tipo_display }}</td>
       <td>{{ r.solicitante|default:"—" }}</td>
       <td>{{ r.get_nivel_display }}</td>

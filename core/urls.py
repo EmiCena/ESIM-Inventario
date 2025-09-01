@@ -1,12 +1,13 @@
 from django.urls import path
 from django.views.generic import TemplateView
+from . import views
 from .views import (
     Home, PrestamoRapidoView, DevolucionView, PrestamosActivosView,
     KPIs, ItemsDisponibles,
     SignupView, AuthLoginView, AuthLogoutView, DiscordLinkView,
     ReservasPendientesView, aprobar_reserva, cancelar_reserva
 )
-
+from core.views import PrediccionesML, PrediccionesMLExplain
 urlpatterns = [
     path("", Home.as_view(), name="home"),
     path("prestamo/", PrestamoRapidoView.as_view(), name="prestamo"),
@@ -26,4 +27,11 @@ urlpatterns = [
     path("accounts/login/", AuthLoginView.as_view(), name="login"),
     path("accounts/logout/", AuthLogoutView.as_view(), name="logout"),
     path("accounts/discord/", DiscordLinkView.as_view(), name="discord_link"),
+
+    #Chat
+    path('api/chat/', views.chat_api, name='chat_api'),
+    path('api/predicciones/', PrediccionesML.as_view(), name='predicciones'),
+    path('api/predicciones_ml/', views.PrediccionesML.as_view(), name='predicciones_ml'),
+    path('api/predicciones_ml/explain/', views.PrediccionesMLExplain.as_view(), name='predicciones_ml_explain'),
+    path('api/predicciones_ml/explain/', PrediccionesMLExplain.as_view(), name='predicciones_ml_explain'),
 ]

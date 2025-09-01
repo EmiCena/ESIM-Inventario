@@ -1,0 +1,11 @@
+{
+  "trained_at": "2025-09-01 08:23:29",
+  "metrics": {
+    "mae": 2.5493200143878605,
+    "poisson_deviance": 0.9295167336156976,
+    "n_train": 2604,
+    "n_test": 652,
+    "last_train_date": "2025-06-20"
+  },
+  "train_start_day": "2024-09-01"
+}

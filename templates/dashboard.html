@@ -1,3 +1,4 @@
+<!-- templates/dashboard.html (archivo completo actualizado) -->
 {% extends "base.html" %}
 {% block content %}
 <h1 class="title">Dashboard</h1>
@@ -62,10 +63,144 @@
   </div>
 </div>
 
+<!-- Predicciones: Demanda (lag7 / ml / ensemble) -->
+<div class="card reveal" style="margin-top:16px;">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h3 class="card-title" style="margin:0;">Predicción de demanda (próximos días)</h3>
+    <span id="badgePredInfo" class="badge">/api/predicciones_ml (modo=lag7)</span>
+  </div>
+  <div class="toolbar" style="margin:8px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <label>Horizonte:</label>
+    <select id="predH">
+      <option value="7" selected>7</option>
+      <option value="14">14</option>
+      <option value="30">30</option>
+    </select>
+
+    <label>Modo:</label>
+    <select id="predMode">
+      <option value="lag7" selected>lag7 (recomendado)</option>
+      <option value="ensemble">ensemble (lag7+ML)</option>
+      <option value="ml">ML</option>
+    </select>
+
+    <span id="wrapPredW" style="display:none;">
+      <label style="margin-left:6px;">Peso lag7 (w):</label>
+      <input id="predW" type="range" min="0" max="1" step="0.05" value="0.7" />
+      <span id="predWVal">0.70</span>
+    </span>
+  </div>
+  <div class="chart-wrap"><canvas id="predDemanda"></canvas></div>
+</div>
+
+<!-- Predicciones: Riesgo de devolución tardía -->
+<div class="card reveal" style="margin-top:16px;">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h3 class="card-title" style="margin:0;">Riesgo de devolución tardía</h3>
+    <span class="badge" style="background:#fff7ed; color:#9a3412; border-color:#fed7aa;">experimental</span>
+  </div>
+
+  <div class="toolbar" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px;">
+    <label>Tipo:
+      <select id="riesgoTipo">
+        <option value="NB">Notebook</option>
+        <option value="TB">Tablet</option>
+        <option value="AL">Alargue</option>
+      </select>
+    </label>
+    <label>Nivel:
+      <select id="riesgoNivel">
+        <option value="SEC">Secundario</option>
+        <option value="SUP">Superior</option>
+        <option value="PER">Personal</option>
+      </select>
+    </label>
+    <label>Turno:
+      <select id="riesgoTurno">
+        <option value="M">Mañana</option>
+        <option value="T">Tarde</option>
+        <option value="N">Noche</option>
+      </select>
+    </label>
+
+    <label>Umbral medio:</label>
+    <input id="thrMed" type="number" min="0" max="1" step="0.05" value="0.20" style="width:80px;" />
+    <label>Umbral alto:</label>
+    <input id="thrHigh" type="number" min="0" max="1" step="0.05" value="0.45" style="width:80px;" />
+
+    <button id="btnRiesgo" class="btn">Calcular</button>
+    <strong id="outRiesgo" style="margin-left:8px;">—</strong>
+  </div>
+</div>
+
+<!-- Explicabilidad -->
+<div class="card reveal" style="margin-top:16px;">
+  <h3 class="card-title">¿Cómo se calcula esta predicción?</h3>
+
+  <div class="toolbar" style="gap:10px; flex-wrap:wrap;">
+    <label>Tipo:
+      <select id="exTipo">
+        <option value="NB">Notebook</option>
+        <option value="TB">Tablet</option>
+        <option value="AL">Alargue</option>
+      </select>
+    </label>
+    <label>Turno:
+      <select id="exTurno">
+        <option value="M">Mañana</option>
+        <option value="T">Tarde</option>
+        <option value="N" selected>Noche</option>
+      </select>
+    </label>
+    <label>Fecha:
+      <input id="exDate" type="date"/>
+    </label>
+    <label>Vista:</label>
+    <select id="exKind">
+      <option value="demanda" selected>Demanda</option>
+      <option value="tardanza">Tardanza</option>
+    </select>
+
+    <span id="exExtra" style="display:none; gap:8px; align-items:center;">
+      <label>Nivel:
+        <select id="exNivel">
+          <option value="SEC" selected>Secundario</option>
+          <option value="SUP">Superior</option>
+          <option value="PER">Personal</option>
+        </select>
+      </label>
+      <label>Hora:
+        <input id="exHour" type="number" min="0" max="23" step="1" value="18" style="width:80px;"/>
+      </label>
+      <label>Dur. prev. (h):
+        <input id="exDur" type="number" min="0.25" step="0.25" value="2" style="width:90px;"/>
+      </label>
+    </span>
+
+    <button id="btnExplain" class="btn">Calcular</button>
+  </div>
+
+  <div id="exOut" style="margin-top:10px;">
+    <div class="badge">Elegí los parámetros y presioná Calcular</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const TYPE_COLORS = { NB: '#6A3EE7', TB: '#49D6D6', AL: '#FF7A00' };
-let barChart, donutChart, barTipoChart;
+let barChart, donutChart, barTipoChart, predChart;
+
+(function(){
+  // Chart.js colores desde CSS
+  const css = getComputedStyle(document.documentElement);
+  const text = css.getPropertyValue('--text').trim() || '#111827';
+  const grid = css.getPropertyValue('--border').trim() || '#e5e7eb';
+  if (window.Chart){
+    Chart.defaults.color = text;
+    Chart.defaults.borderColor = grid;
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  }
+})();
 
 function toggleSuperiorFields(){
   const nivel = document.getElementById('nivel').value;
@@ -74,6 +209,7 @@ function toggleSuperiorFields(){
   document.getElementById('wrap-anio').style.display = sup ? 'inline-block' : 'none';
 }
 
+/* ===== KPIs ===== */
 async function fetchData() {
   const params = new URLSearchParams();
   const tipo = document.getElementById('tipo').value;
@@ -117,6 +253,188 @@ function makeBarTipo(ctx, labels, data) {
   });
 }
 
+/* ===== Predicción de demanda ===== */
+function setPredControlsVisibility(){
+  const mode = document.getElementById('predMode').value;
+  document.getElementById('wrapPredW').style.display = (mode === 'ensemble') ? 'inline-flex' : 'none';
+}
+async function fetchPredDemandaML(h, mode, w){
+  const params = new URLSearchParams({ kind:'demanda', h: String(h), mode });
+  if (mode === 'ensemble') params.append('w', String(w));
+  const resp = await fetch(`/api/predicciones_ml/?${params.toString()}`);
+  return await resp.json();
+}
+function makeLinePred(ctx, labels, datasets){
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+async function updatePredDemanda(){
+  const h = Number(document.getElementById('predH').value || 7);
+  const mode = document.getElementById('predMode').value;
+  const w = Number(document.getElementById('predW').value || 0.7);
+  document.getElementById('predWVal').textContent = w.toFixed(2);
+  setPredControlsVisibility();
+
+  const data = await fetchPredDemandaML(h, mode, w);
+  const pred = data.predicciones || [];
+
+  // Agrupar por fecha y tipo
+  const byDateTipo = {};
+  pred.forEach(r => {
+    const k = r.date + '|' + r.tipo;
+    byDateTipo[k] = (byDateTipo[k] || 0) + (r.pred || 0);
+  });
+
+  const dates = [...new Set(pred.map(r => r.date))].sort();
+  const tipos = ['NB','TB','AL'];
+  const labels = dates.map(d => new Date(d).toLocaleDateString());
+  const datasets = tipos.map(t => ({
+    label: t === 'NB' ? 'Notebook' : (t === 'TB' ? 'Tablet' : 'Alargue'),
+    data: dates.map(d => byDateTipo[d+'|'+t] || 0),
+    borderColor: TYPE_COLORS[t],
+    backgroundColor: TYPE_COLORS[t] + '33',
+    tension: .25,
+    fill: false
+  }));
+
+  if (predChart) predChart.destroy();
+  predChart = makeLinePred(document.getElementById('predDemanda').getContext('2d'), labels, datasets);
+}
+
+/* ===== Riesgo de tardanza ===== */
+function setTierBadge(tier){
+  const out = document.getElementById('outRiesgo');
+  out.style.color = '#111827';
+  if (tier === 'alto') out.style.color = '#b91c1c';
+  else if (tier === 'medio') out.style.color = '#b45309';
+  else out.style.color = '#065f46';
+}
+async function calcRiesgo(){
+  const tipo = document.getElementById('riesgoTipo').value;
+  const nivel = document.getElementById('riesgoNivel').value;
+  const turno = document.getElementById('riesgoTurno').value;
+  const thrMed = Number(document.getElementById('thrMed').value || 0.2);
+  const thrHigh = Number(document.getElementById('thrHigh').value || 0.45);
+
+  const params = new URLSearchParams({
+    kind:'tardanza', tipo, nivel, turno,
+    thr_med:String(thrMed), thr_high:String(thrHigh)
+  });
+  const r = await fetch(`/api/predicciones_ml/?${params.toString()}`);
+  const j = await r.json();
+  if (!j.prediccion){
+    document.getElementById('outRiesgo').textContent = 'sin datos';
+    return;
+  }
+  const { score, tier } = j.prediccion;
+  document.getElementById('outRiesgo').textContent = `score ${score.toFixed(3)} · ${tier}`;
+  setTierBadge(tier);
+}
+
+/* ===== Explicabilidad ===== */
+(function initExplainDefaults(){
+  const exDate = document.getElementById('exDate');
+  const tomorrow = new Date(Date.now() + 86400000);
+  exDate.value = tomorrow.toISOString().slice(0,10);
+  const exKind = document.getElementById('exKind');
+  const exExtra = document.getElementById('exExtra');
+  const toggle = ()=> exExtra.style.display = (exKind.value === 'tardanza') ? 'inline-flex' : 'none';
+  exKind.addEventListener('change', toggle);
+  toggle();
+})();
+function fmtContrib(rows){
+  if (!rows || !rows.length) return '<em>Sin datos</em>';
+  const top = rows.slice(0,8);
+  return `
+    <table class="table">
+      <thead><tr><th>Feature</th><th style="text-align:right;">Contribución</th></tr></thead>
+      <tbody>
+        ${top.map(r=>`<tr><td>${r.feature}</td><td style="text-align:right;">${(r.contrib>=0?'+':'')}${Number(r.contrib).toFixed(4)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+async function explain(){
+  const params = new URLSearchParams();
+  const kind = document.getElementById('exKind').value;
+  const tipo = document.getElementById('exTipo').value;
+  const turno = document.getElementById('exTurno').value;
+  const date = document.getElementById('exDate').value;
+
+  params.append('kind', kind);
+  params.append('tipo', tipo);
+  params.append('turno', turno);
+  if (date) params.append('date', date);
+
+  if (kind === 'tardanza'){
+    params.append('nivel', document.getElementById('exNivel').value);
+    params.append('hour', document.getElementById('exHour').value);
+    params.append('dur', document.getElementById('exDur').value);
+  } else {
+    params.append('mode', 'ml');
+    params.append('w', '0.7');
+  }
+
+  const r = await fetch('/api/predicciones_ml/explain/?' + params.toString());
+  const j = await r.json();
+  const out = document.getElementById('exOut');
+
+  if (kind === 'demanda'){
+    const p = j.pred || {};
+    const ex = j.explain_ml || {};
+    out.innerHTML = `
+      <div class="card" style="padding:12px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <span class="badge">Fecha: ${j.input?.date || '-'}</span>
+          <span class="badge">Tipo: ${j.input?.tipo}</span>
+          <span class="badge">Turno: ${j.input?.turno}</span>
+        </div>
+        <h4 style="margin:10px 0 6px;">Predicción</h4>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <span class="badge">lag7: <strong>${p.lag7 ?? '-'}</strong></span>
+          <span class="badge">ML: <strong>${p.ml ?? '-'}</strong></span>
+          <span class="badge">ensemble(0.7): <strong>${p.ensemble ?? '-'}</strong></span>
+          <span class="badge">seleccionada: <strong>${p.selected ?? '-'}</strong></span>
+        </div>
+        <h4 style="margin:12px 0 6px;">Desglose (modelo ML)</h4>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">
+          ${ex?.notes || ex?.error || '—'}
+        </div>
+        ${fmtContrib(ex?.by_group)}
+      </div>
+    `;
+  } else {
+    const p = j.pred || {};
+    const ex = j.explain_base || {};
+    out.innerHTML = `
+      <div class="card" style="padding:12px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <span class="badge">Tipo: ${j.input?.tipo}</span>
+          <span class="badge">Nivel: ${j.input?.nivel}</span>
+          <span class="badge">Turno: ${j.input?.turno}</span>
+          <span class="badge">Fecha/Hora: ${j.input?.datetime}</span>
+          <span class="badge">Dur. prevista: ${j.input?.dur_prevista_h ?? '-' } h</span>
+        </div>
+        <h4 style="margin:10px 0 6px;">Probabilidad calibrada</h4>
+        <span class="badge"><strong>${(p.prob_calibrated ?? 0).toFixed(3)}</strong></span>
+        <h4 style="margin:12px 0 6px;">Desglose (log-odds, antes de calibrar)</h4>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">
+          ${ex?.notes || ex?.warning || ex?.error || '—'}
+        </div>
+        ${fmtContrib(ex?.by_group)}
+      </div>
+    `;
+  }
+}
+
+/* ===== Carga ===== */
 async function load() {
   toggleSuperiorFields();
   const d = await fetchData();
@@ -125,7 +443,6 @@ async function load() {
   const labelsTop = d.top_items.map(x => x.item__code);
   const horasTop = d.top_items.map(x => x.horas);
   const colorsTop = d.top_items.map(x => TYPE_COLORS[x.item__tipo] || '#999');
-
   if (barChart) barChart.destroy();
   barChart = makeBar(document.getElementById('top').getContext('2d'), labelsTop, horasTop, colorsTop);
 
@@ -134,20 +451,28 @@ async function load() {
   if (donutChart) donutChart.destroy();
   donutChart = makeDonut(document.getElementById('turnos').getContext('2d'), Object.keys(uso), Object.values(uso));
 
-  // Horas por tipo (NB/TB/AL) — requiere que el backend devuelva horas_por_tipo
+  // Horas por tipo
   if (d.horas_por_tipo) {
     const labelsTipo = ['NB','TB','AL'];
     const dataTipo = labelsTipo.map(k => d.horas_por_tipo[k] || 0);
     if (barTipoChart) barTipoChart.destroy();
     barTipoChart = makeBarTipo(document.getElementById('horasTipo').getContext('2d'), ['Notebooks','Tablets','Alargues'], dataTipo);
   }
+
+  // Predicciones (demanda)
+  updatePredDemanda();
 }
 
 ['tipo','days','nivel','carrera','anio'].forEach(id=>{
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', load);
 });
-toggleSuperiorFields();
+document.getElementById('predH').addEventListener('change', updatePredDemanda);
+document.getElementById('predMode').addEventListener('change', updatePredDemanda);
+document.getElementById('predW').addEventListener('input', updatePredDemanda);
+document.getElementById('btnRiesgo').addEventListener('click', calcRiesgo);
+document.getElementById('btnExplain').addEventListener('click', explain);
+
 load();
 </script>
 {% endblock %}
