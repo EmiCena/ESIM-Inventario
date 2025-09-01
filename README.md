@@ -253,3 +253,7 @@ Roadmap (sugerencias)
   - Guardar historial de predicciones y performance real para seguimiento.
 
 ¿Dudas o sugerencias? Abrí un issue en el repo o contactá al responsable del proyecto.
+
+![Mi proyecto](images/imagen1.png) ![Mi proyecto](images/imagen2.png)
+![Mi proyecto](images/imagen3.png) ![Mi proyecto](images/images4.png)
+
